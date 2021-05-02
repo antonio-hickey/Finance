@@ -1,7 +1,9 @@
+* *THIS IS NOT TRADING ADVICE *
+
 # Volume Weighted Average Price Sigma Bands
 ![Sample Image](https://i.ibb.co/mCsB9L8/2021-05-02-14-36.png)
 
-### Signals:
+### [Signals](https://git.io/J3BnG):
 
     - Blue dots = Possible Reversion
    
@@ -9,4 +11,12 @@
    
     - Green dots = Possible Trend Up
 
-* *THIS IS NOT TRADING ADVICE *
+### [Sigma Bands](https://git.io/J3Bnw):
+
+    - Teal = VWAP
+
+    - Yellow = VWAP + or - Sigma
+
+    - Orange = VWAP + or - 2(Sigma)
+
+    - Red = VWAP + or - 3(Sigma)
