@@ -1,9 +1,7 @@
 /*
-    Antonio Hickey (https://github.com/antonio-hickey)
-    
-    Javascript for use with Tradovate:
-
-    Volume Weighted Average Price Standard Deviation Bands
+    Antonio Hickey (https://git.io/J3Bnw)
+    ----------------------------------------------------------
+    | Plotting VWAP Sigma Bands                              |
     ----------------------------------------------------------
         - Bull and Bear Value, rolling VWAP
         - Bull and Bear Support, rolling VWAP * (1 sigma)
@@ -11,10 +9,14 @@
         - Bull and Bear Capitulation, rolling VWAP * (3 sigma)
     ----------------------------------------------------------
 */
+
+//
 const predef = require("./tools/predef");
 const meta = require("./tools/meta");
 const medianPrice = require("./tools/typicalPrice");
 const { ParamType } = meta;
+//
+
 
 // Volume Type
 const volType = {
@@ -47,11 +49,18 @@ class stdBands {
         this.vwaps = [];
     }
     
+    // Start of main function
     map(d,i,history) {
+
+        // Start of loop
         if (d.tradeDate) {
+            // Input Values
             const tradeDate = d.tradeDate();
             const period = this.props.rollingPeriod + 1
             const pastData = history.data[i-period]
+            //
+
+            // if historic data
             if (pastData) {
                 const pastProfile = pastData.profile()
                 if (pastProfile && pastProfile.length) {
@@ -69,6 +78,9 @@ class stdBands {
                     this.cumulativeValue2 -= vol * Math.pow(medianPrice(pastData),2);
                 }
             }
+            //
+
+            // Else live data
             const volumeProfile = d.profile();
             if (volumeProfile && volumeProfile.length) {
                 for (let i = 0; i < volumeProfile.length; ++i) {
@@ -84,15 +96,17 @@ class stdBands {
                 this.cumulativeValue += vol * medianPrice(d);
                 this.cumulativeValue2 += vol * Math.pow(medianPrice(d),2);
             }
+            //
 
+            // VWAP Sigma Bands
             const vwap = this.cumulativeValue / this.cumulativeVolume;
-            const stdDev = Math.sqrt(Math.max(this.cumulativeValue2 / this.cumulativeVolume - Math.pow(vwap,2),0));
-            const bull_sup = vwap + stdDev;
-            const bull_res = vwap + (stdDev * 2);
-            const bull_cap = vwap + (stdDev * 3);
-            const bear_sup = vwap - stdDev;
-            const bear_res = vwap - (stdDev * 2);
-            const bear_cap = vwap - (stdDev * 3);
+            const sigma = Math.sqrt(Math.max(this.cumulativeValue2 / this.cumulativeVolume - Math.pow(vwap,2),0));
+            const bull_sup = vwap + sigma;
+            const bull_res = vwap + (sigma * 2);
+            const bull_cap = vwap + (sigma * 3);
+            const bear_sup = vwap - sigma;
+            const bear_res = vwap - (sigma * 2);
+            const bear_cap = vwap - (sigma * 3);
 
             // Output
             return {

@@ -1,13 +1,22 @@
 /*
+      Antonio Hickey (https://git.io/J3BnG)
+     ----------------------------------------------
+     | Signals for VWAP Deviation Bands           | 
+     ----------------------------------------------
+         - Bull Trending Signal = price > (VWAP + sigma)
+         - Bull Reversion Signal = price > VWAP && price < (VWAP + sigma)
 
+         - Bear Trending Signal = price < (VWAP - sigma)
+         - Bear Reversion Signal = price < VWAP && price > (VWAP - sigma)
+     ----------------------------------------------
 */
-//
+
 //
 const predef = require("./tools/predef");
 const meta = require("./tools/meta");
 const medianPrice = require("./tools/typicalPrice");
 const { ParamType } = meta;
-
+//
 
 // Volume Type
 const volType = {
@@ -31,7 +40,7 @@ function num(defValue,step,min) {
 //
 
 // Class
-class signals {
+class Signals {
     init() {
         this.cumulativeVolume = 0;
         this.cumulativeValue = 0;
@@ -39,11 +48,18 @@ class signals {
         this.tradeDate = 0;
         this.vwaps = [];
     }
+    // Start of function
     map(d,i,history) {
+        
+        // Start of loop
         if (d.tradeDate) {
+            // Input Values
             const tradeDate = d.tradeDate();
             const period = this.props.rollingPeriod + 1
             const pastData = history.data[i-period]
+            //
+
+            // If historic data
             if (pastData) {
                 const pastProfile = pastData.profile()
                 if (pastProfile && pastProfile.length) {
@@ -61,6 +77,9 @@ class signals {
                     this.cumulativeValue2 -= vol * Math.pow(medianPrice(pastData),2);
                 }
             }
+            //
+
+            // Else live data
             const volumeProfile = d.profile();
             if (volumeProfile && volumeProfile.length) {
                 for (let i = 0; i < volumeProfile.length; ++i) {
@@ -76,42 +95,55 @@ class signals {
                 this.cumulativeValue += vol * medianPrice(d);
                 this.cumulativeValue2 += vol * Math.pow(medianPrice(d),2);
             }
+            //
 
             // VWAP Deviation Bands
             const vwap = this.cumulativeValue / this.cumulativeVolume;
-            const stdDev = Math.sqrt(Math.max(this.cumulativeValue2 / this.cumulativeVolume - Math.pow(vwap,2),0));
-            const bull_sup = vwap + stdDev;
-            const bull_res = vwap + (stdDev * 2);
-            const bull_cap = vwap + (stdDev * 3);
-            const bear_sup = vwap - stdDev;
-            const bear_res = vwap - (stdDev * 2);
-            const bear_cap = vwap - (stdDev * 3);
+            const sigma = Math.sqrt(Math.max(this.cumulativeValue2 / this.cumulativeVolume - Math.pow(vwap,2),0));
+            const bull_sup = vwap + sigma;
+            const bull_res = vwap + (sigma * 2);
+            const bull_cap = vwap + (sigma * 3);
+            const bear_sup = vwap - sigma;
+            const bear_res = vwap - (sigma * 2);
+            const bear_cap = vwap - (sigma * 3);
             //
 
-            // TESTING
-            let BearSignal;
-            let BullSignal;
+            // Signals
+            let BullTrendingSignal;
+            let BullReversionSignal;
+            let BearTrendingSignal;
+            let BearReversionSignal;
+            //
+
+            // Input values
             const tickSize = this.contractInfo.tickSize;
             const price = d.value();
-            if (price > bull_res){
-                BearSignal = d.high() + (tickSize * this.props.plotInTick);
+            //
+
+            // Bull Signals
+            if (price >= bull_sup) {
+                BullTrendingSignal = d.low() - (tickSize*this.props.plotInTick);
             }
-            if (price < bear_res){
-                BullSignal = d.low() - (tickSize * this.props.plotInTick);
+            if (price > vwap && price < bull_sup) {
+                BullReversionSignal = d.high() + (tickSize*this.props.plotInTick);
             }
             //
 
-            // Outputting
+            // Bear Signals
+            if (price <= bear_sup) {
+                BearTrendingSignal = d.high() + (tickSize*this.props.plotInTick);
+            }
+            if (price < vwap && price > bear_sup) {
+                BearReversionSignal = d.low() - (tickSize*this.props.plotInTick);
+            }
+            //
+            
+            // Output
             return {
-                vwap: vwap,
-                bull_sup: bull_sup,
-                bull_res: bull_res,
-                bull_cap: bull_cap,
-                bear_sup: bear_sup,
-                bear_res: bear_res,
-                bear_cap: bear_cap,
-                BearSignal: BearSignal,
-                BullSignal: BullSignal
+                BullTrendingSignal: BullTrendingSignal,
+                BullReversionSignal: BullReversionSignal,
+                BearTrendingSignal: BearTrendingSignal,
+                BearReversionSignal: BearReversionSignal
             }
             //
         }
@@ -120,9 +152,9 @@ class signals {
 //
 // Exporting Modules
 module.exports = {
-    name: "signals",
-    description: "VWAPBANDS",
-    calculator: signals,
+    name: "Signals",
+    description: "Signals",
+    calculator: Signals,
     inputType: meta.InputType.BARS,
     tags: ["My Indicators"],
     params: {
@@ -135,42 +167,29 @@ module.exports = {
         rollingPeriod: num(30,1,1)
     },
     plotter: [
-        predef.plotters.dots('BearSignal'),
-        predef.plotters.dots('BullSignal')
+        predef.plotters.dots('BearTrendingSignal'),
+        predef.plotters.dots('BearReversionSignal'),
+        predef.plotters.dots('BullTrendingSignal'),
+        predef.plotters.dots('BullReversionSignal')
     ],
     plots: {
-        vwap: { title: "Rolling VWAP" },
-        bull_sup: { title: "Bull Support" },
-        bull_res: { title: "Bull Resistance" },
-        bull_cap: { title: "Bull Capitulation" },
-        bear_sup: { title: "Bear Support" },
-        bear_res: { title: "Bear Resistance" },
-        bear_cap: { title: "Bear Capitulation" },
-        BearSignal: { title: "Sell Signal" },
-        BullSignal: { title: "Buy Signal" }
+        BearTrendingSignal: { title: "Bearish Trend" },
+        BearReversionSignal: { title: "Bearish Trend" },
+        BullTrendingSignal: { title: "Bullish Trend" },
+        BullReversionSignal: { title: "Bullish Reversion" }
     },
     schemeStyles: {
         dark: {
-            vwap: predef.styles.plot({color: "#50E3C2", lineStyle:1, lineWidth:5}),
-            bull_sup: predef.styles.plot({color: "#F8E71C", lineStyle:3, lineWidth:2}),
-            bull_res: predef.styles.plot({color: "#F5A623", lineStyle:1, lineWidth:2}),
-            bull_cap: predef.styles.plot({color: "#D0021B", lineStyle:3}),
-            bear_sup: predef.styles.plot({color: "#F8E71C", lineStyle:3, lineWidth:2}),  
-            bear_res: predef.styles.plot({color: "#F5A623", lineStyle:1, lineWidth:2}),  
-            bear_cap: predef.styles.plot({color: "#D0021B", lineStyle:3}),
-            BearSignal: {color: "red"},
-            BullSignal: {color: "green"}
+            BearTrendingSignal: {color: "red"},
+            BearReversionSignal: {color: "blue"},
+            BullTrendingSignal: {color: "green"},
+            BullReversionSignal: {color: "blue"}
         },
         light: {
-            vwap: predef.styles.plot({color: "#50E3C2", lineStyle:1, lineWidth:5}),
-            bull_sup: predef.styles.plot({color: "#F8E71C", lineStyle:3, lineWidth:2}),
-            bull_res: predef.styles.plot({color: "#F5A623", lineStyle:3, lineWidth:2}),
-            bull_cap: predef.styles.plot({color: "#D0021B", lineStyle:3}),      
-            bear_sup: predef.styles.plot({color: "#F8E71C", lineStyle:3, lineWidth:2}),  
-            bear_res: predef.styles.plot({color: "#F5A623", lineStyle:1, lineWidth:2}),  
-            bear_cap: predef.styles.plot({color: "#D0021B", lineStyle:3}),
-            BearSignal: {color: "red"},
-            BullSignal: {color: "green"}
+            BearTrendingSignal: {color: "red"},
+            BearReversionSignal: {color: "blue"},
+            BullTrendingSignal: {color: "green"},
+            BullReversionSignal: {color: "blue"}
         }
     }
 };
